@@ -1,0 +1,211 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+<META NAME="generator" CONTENT="http://txt2tags.sf.net">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+<TITLE>Postgis Historisation</TITLE>
+<STYLE TYPE="text/css">
+body {
+  padding: 2em 1em 2em 70px;
+  margin: 0;
+  font-family: sans-serif;
+  color: black;
+  background: white;
+}
+:link { color: #00C; background: transparent }
+:visited { color: #609; background: transparent }
+a:active { color: #C00; background: transparent }
+
+a:link img, a:visited img { border-style: none } 
+
+
+h1, h2, h3, h4, h5, h6 { text-align: left }
+h1, h2, h3 { color: #005A9C; background: white }
+h1 { font: 170% sans-serif }
+h2 { font: 140% sans-serif }
+h3 { font: 120% sans-serif }
+h4 { font: bold 100% sans-serif }
+h5 { font: italic 100% sans-serif }
+h6 { font: small-caps 100% sans-serif }
+
+pre { margin-left: 2em;
+      border: 1;
+      padding: 4px;
+      background: #ececec; }
+pre, code { font-family: monospace } 
+
+
+</STYLE>
+</HEAD>
+<BODY>
+
+<DIV CLASS="header" ID="header">
+<H1>Postgis Historisation</H1>
+<H3>Dr. Horst Duester (Kanton Solothurn, horst dot duester at kappasys dot ch)</H3>
+<H3>Dr. Andreas Neumann (Stadt Uster, Andreas dot Neumann at Stadt-Uster dot ch) </H3>
+</DIV>
+
+<DIV CLASS="toc" ID="toc">
+  <OL>
+  <LI><A HREF="#toc1">Why historisation?</A>
+  <LI><A HREF="#toc2">Goals of a historisation implementation</A>
+  <LI><A HREF="#toc3">The approaches</A>
+    <UL>
+    <LI><A HREF="#toc4">3.1. Repository approach</A>
+    <LI><A HREF="#toc5">3.2. Live historisation approach</A>
+    </UL>
+  <LI><A HREF="#toc6">Downloads</A>
+    <UL>
+    <LI><A HREF="#toc7">4.1. Repository approach</A>
+    <LI><A HREF="#toc8">4.2. Live historisation approach</A>
+    <LI><A HREF="#toc9">4.3. Sample data (SQL dump)</A>
+    </UL>
+  </OL>
+
+</DIV>
+<DIV CLASS="body" ID="body">
+<A NAME="toc1"></A>
+<H1>1. Why historisation?</H1>
+    <UL>
+    <LI>Time is an important dimension in GIS (often neglected in the past)
+    <LI>Ability to reconstruct past state of a dataset
+    <LI>Simpler database management:
+          <UL>
+          <LI>No file-based copies
+          <LI>Consistent, stable data structure throughout history of a dataset
+          </UL>
+    <LI>Traceability: who changed when what data - and what did he change?
+    <LI>Law/bills: in some countries organisations are required to historise and archive geographic datasets. As an example in Switzerland the recently introduced "GeoIG" (GeoIV, Abschnitt 5) requests historisation of certain datasets.
+    </UL>
+
+<P></P>
+<A NAME="toc2"></A>
+<H1>2. Goals of a historisation implementation</H1>
+<P>
+The following requirements should be taken into account when implementing historisation:
+</P>
+    <UL>
+    <LI>Should be automatable
+    <LI>Should require only low maintenance
+    <LI>Should allow manual overriding (e.g. disabling triggers/rules)
+    <LI>Should not require adaptations of desktop GIS and Web-GIS
+    <LI>Should keep good performance and low storage demands in mind
+    </UL>
+
+<P></P>
+<A NAME="toc3"></A>
+<H1>3. The approaches</H1>
+<P>
+The following is common to both approaches:
+</P>
+     <UL>
+     <LI>Data is never deleted, but deleted or updated records are archived
+     <LI>All data is stored in a central table (both current and past data)
+     <LI>The current data state can be retrieved and manipulated through a view
+     <LI>Every record has at least the following three additional columns:
+          <UL>
+          <LI>create_date
+          <LI>archive_date
+          <LI>id (in addition to "gid", allows traceability)
+          </UL>
+     <LI>A record may have the following additional columns:
+          <UL>
+          <LI>create_user
+          <LI>last_user ch columns had been changed)
+          </UL>
+     <LI>Both approaches listed below don't yet have a conflict detection for the case that two or more people work on the same dataset at the same time
+     </UL>
+
+<A NAME="toc4"></A>
+<H2>3.1. Repository approach</H2>
+<P>
+The repository approach developed by the Kanton of Solothurn (SO!GIS) allows data to be checked out, revised externally (potentially in completely different software) and to be checked in again. Alternatively, one can just import data from external production systems and store the data in a central, historised respository. The advantage is that data consistency is always guaranteed.
+</P>
+<P>
+The function <CODE>updatelayer()</CODE> - see download below - first runs the following checks before doing the updates:
+</P>
+    <UL>
+    <LI>Are both tables existing in the specified schemas
+    <LI>What are the names of the geometry_columns, are they of the same geometry type and are they registered in the "geometry_columns" table?
+    <LI>Are the data structures equivalent?
+    <LI>Are the primary keys existing?
+    <LI>Are the columns necessary for the historisation exist in the historised repository table?
+    </UL>
+
+<P></P>
+<P>
+After the checks ran successfully the actual data synchronsation can take place. In a first step, the script finds all records that exist in the old repository table, but not in the new table to be checked in. These records are archived as deleted in the repository table. As a second step the script finds all records that are present in the new table, but not in the repository. Those records are retrieved into the repository and marked as new inserts.
+</P>
+<A NAME="toc5"></A>
+<H2>3.2. Live historisation approach</H2>
+<P>
+For the live historisation approach developed by the City of Uster (based on existing work in PostgreSQL, e.g. <A HREF="http://www.varlena.com/GeneralBits/Tidbits/tt.pdf">TimeTravel by Varlena</A>), we first need to import two trigger functions written in pl/Perl. You need to load the two trigger functions <CODE>insert_timegis()</CODE> and <CODE>update_timegis()</CODE> listed in the download section below. They are best imported into the "public" schema. Next you have to do the following 6 steps, which can be automated by the script <CODE>add_history()</CODE>, also available below:
+</P>
+<P>
+   1. Create additional columns required for the historisation (see above)
+   2. Create a delete rule on the master repository table
+   3. Create insert and update row-level before triggers for insert and update that call the two functions <CODE>insert_timegis()</CODE> and <CODE>update_timegis()</CODE>
+   4. Create indizes on the master table, specifically for create_date and archive_date
+   5. Create a view representing the current data state
+   6. Create rules (insert, update and delete) to enable data manipulation on the current view
+</P>
+<A NAME="toc6"></A>
+<H1>4. Downloads</H1>
+<P>
+FOSSGIS 2009 article "[Historisierung von PostGIS-Daten als Grundlage zur Langzeitarchivierung von Geodaten <A HREF="http://www.kappasys.ch/pgtools/pghistory/postgis_historisierung_fossgis2009_neumann_duester.pdf">http://www.kappasys.ch/pgtools/pghistory/postgis_historisierung_fossgis2009_neumann_duester.pdf</A>" (german) explaining the historisation principles.   
+</P>
+<A NAME="toc7"></A>
+<H2>4.1. Repository approach</H2>
+<P>
+updatelayer()
+</P>
+<div class="code"><PRE>
+Goal: synchronise external data source with historised repository.
+
+Syntax:
+
+updatelayer(new_schema.new_table,historised_schema.historised_table)
+</PRE></div>
+<P>
+<A HREF="http://www.kappasys.ch/pgtools/pghistory/updatelayer.sql">updatelayer()</A>, pl/PgSQL, by Horst Duester, Kanton Solothurn
+</P>
+<A NAME="toc8"></A>
+<H2>4.2. Live historisation approach</H2>
+<div class="code"><PRE>
+insert_timegis() trigger function
+</PRE></div>
+<P>
+<A HREF="http://www.kappasys.ch/pgtools/pghistory/insert_timegis_trigger_function.sql">insert_timegis()</A>, pl/Perl, by Andreas Neumann, City of Uster
+</P>
+<div class="code"><PRE>
+update_timegis() trigger function
+</PRE></div>
+<P>
+<A HREF="http://www.kappasys.ch/pgtools/pghistory/update_timegis_trigger_function.sql">update_timegis()</A>, pl/Perl, by Andreas Neumann, City of Uster
+</P>
+<P>
+add_history() function
+</P>
+<div class="code"><PRE>
+Goal: add necessary columns, triggers, rules, indizes and views for historised datasets.
+
+Syntax:
+
+add_history('name_schema','name_table','name_schema_view','name_view')
+</PRE></div>
+<P>
+<A HREF="http://www.kappasys.ch/pgtools/pghistory/add_history.sql">add_history()</A>, pl/Perl, by Andreas Neumann, City of Uster
+</P>
+<A NAME="toc9"></A>
+<H2>4.3. Sample data (SQL dump)</H2>
+<P>
+Goal: historised dataset to experiment with. Please create schema "test", as this SQL script creates a table and view in the schema "test". It also assumes that the above listed trigger functions "insert_timegis()" and "update_timegis()" are present. Assumes utf-8 encoding.
+</P>
+<P>
+<A HREF="http://www.kappasys.ch/pgtools/pghistory/historised_table_example.sql">historised_table_example.sql</A>, by Andreas Neumann, City of Uster
+</P>
+</DIV>
+
+<!-- html code generated by txt2tags 2.3 (http://txt2tags.sf.net) -->
+<!-- cmdline: txt2tags -i index.t2t -o index.html -t html -->
+</BODY></HTML>
