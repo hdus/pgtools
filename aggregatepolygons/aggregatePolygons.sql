@@ -30,9 +30,9 @@ $BODY$DECLARE
 Begin
   invDist := $3 * -1;
 
-  IF not isEmpty($1) THEN
+  IF not st_isEmpty($1) THEN
     theUnionGeom := st_union($1,$2);
-    IF NOT isEmpty(theUnionGeom) THEN
+    IF NOT st_isEmpty(theUnionGeom) THEN
       IF (GeometryType(theUnionGeom) = 'GEOMETRYCOLLECTION') THEN      
         theUnionGeom := st_geometryextract(theUnionGeom,3);     
       END IF;
@@ -72,7 +72,7 @@ Begin
   execute 'select * from '||theTmpTab into theRec;
   invDist := theRec.dist * -1;
 
-  IF not isEmpty($1) THEN
+  IF not st_isEmpty($1) THEN
     IF theRec.ortho THEN
 --      RAISE NOTICE 'Ortho';
       return st_buffer(st_buffer($1,theRec.dist, 'join=mitre mitre_limit=2.5'),invDist, 'join=mitre mitre_limit=2.5');
