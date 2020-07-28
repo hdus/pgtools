@@ -89,7 +89,7 @@ End;$BODY$
 GRANT EXECUTE ON FUNCTION _aggregatepolygonsfunction(geometry, geometry, double precision, boolean) TO public;
 GRANT EXECUTE ON FUNCTION _aggregatepolygonsfunctionbuffer(geometry) TO public;
 
-DROP AGGREGATE aggregatepolygons(geometry, double precision, boolean);
+DROP AGGREGATE IF EXISTS aggregatepolygons(geometry, double precision, boolean);
 CREATE AGGREGATE aggregatepolygons(geometry, double precision, boolean)
 
 (
