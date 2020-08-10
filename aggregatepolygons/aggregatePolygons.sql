@@ -75,10 +75,10 @@ Begin
   IF not st_isEmpty($1) THEN
     IF theRec.ortho THEN
 --      RAISE NOTICE 'Ortho';
-      return st_buffer(st_buffer($1,theRec.dist, 'join=mitre mitre_limit=2.5'),invDist, 'join=mitre mitre_limit=2.5');
+      return st_dump(st_buffer(st_buffer($1,theRec.dist, 'join=mitre mitre_limit=2.5'),invDist, 'join=mitre mitre_limit=2.5')).geom;
     else
 --      RAISE NOTICE 'non Ortho';
-      return st_buffer(st_buffer($1,theRec.dist),invDist);
+      return st_dump(st_buffer(st_buffer($1,theRec.dist),invDist)).geom;
     END IF;
   END IF;  
 End;$BODY$
