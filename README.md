@@ -47,6 +47,8 @@ query:
 
 select aggregatepolygons(wkb_geometry, 50, true) from buildings group by art;
 
+![Screenshot](orthogonal.png)
+
 Figure 1: Orthogonal aggregation of buildings
 
 
