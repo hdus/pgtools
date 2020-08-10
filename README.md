@@ -11,11 +11,15 @@ The aggregate function aggregatepolygons(geometry, double precision, boolean) ex
 
     the geometry column
     Threshold value within which polygons are grouped into map units
-    Orthogonal aggregation of the objects. True=orthogonal and False=not orthogonal. In figure 1 the orthogonal aggregation has been performed. In figure 2 an example of non-orthogonal aggregation
+    Orthogonal aggregation of the objects. True=orthogonal and False=not orthogonal. 
+    
+    
+In figure 1 the orthogonal aggregation has been performed. In figure 2 an example of non-orthogonal aggregation
 
 ## Installation
 
-To avoid invalid geometries during the aggregation process the PostGIS function cleangeometry() must be installed first (see Downloads). Only in the second step the aggregation function aggregatepolygons() can be installed.
+To avoid invalid geometries during the aggregation process the PostGIS function cleangeometry() must be installed first (see Downloads).
+Only in the second step the aggregation function aggregatepolygons() can be installed.
 
  
 
@@ -63,7 +67,3 @@ select aggregatepolygons(wkb_geometry, 50, false) from forest group by art;
 
 Figure 2: Non orthogonal aggregation of natural objects
 
-	
- 
-
-Translated with www.DeepL.com/Translator (free version)
