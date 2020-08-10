@@ -31,10 +31,8 @@ $ psql <dbname> -U <user> -h <server> -f aggregatePolygons.sql
 
 Geometry Cleaner: https://github.com/hdus/pgtools/blob/master/cleangeometry/cleanGeometry.sql
 
+Polygon Aggregation: https://github.com/hdus/pgtools/blob/master/aggregatepolygons/aggregatePolygons.sql 
 
-aggregatePolygons.sql
-
-Polygon Aggregation: 
 
 
 ## Example 1: Orthogonal aggregation of buildings
