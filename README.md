@@ -45,7 +45,9 @@ Figure 1 shows the result of an orthogonal aggregation of buildings.
 
 query:
 
-select aggregatepolygons(wkb_geometry, 50, true) from buildings group by art;
+    select aggregatepolygons(wkb_geometry, 50, true) from buildings group by art;
+
+![orthogonal](images/orthogonal.png)
 
 Figure 1: Orthogonal aggregation of buildings
 
@@ -57,9 +59,10 @@ The result of a non-orthogonal aggregation is shown in Figure 2. Usually, natura
 
 query:
 
-select aggregatepolygons(wkb_geometry, 50, false) from forest group by art;
+    select aggregatepolygons(wkb_geometry, 50, false) from forest group by art;
 
  
+![Natural](images/natural.png)
 
 Figure 2: Non orthogonal aggregation of natural objects
 
