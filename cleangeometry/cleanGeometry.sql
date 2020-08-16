@@ -56,6 +56,5 @@ Begin
 End;$BODY$
   LANGUAGE plpgsql VOLATILE
   COST 100;
-ALTER FUNCTION cleangeometry(geometry)
-  OWNER TO hdus;
+
 
