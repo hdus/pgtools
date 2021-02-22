@@ -1,4 +1,4 @@
-﻿-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 -- 
 -- $Id: aggregatePolygons.sql 2011-11-15 10:30Z Dr. Horst Duester $
 --
@@ -75,10 +75,10 @@ Begin
   IF not st_isEmpty($1) THEN
     IF theRec.ortho THEN
 --      RAISE NOTICE 'Ortho';
-      return st_dump(st_buffer(st_buffer($1,theRec.dist, 'join=mitre mitre_limit=2.5'),invDist, 'join=mitre mitre_limit=2.5')).geom;
+      return (st_dump(st_buffer(st_buffer($1,theRec.dist, 'join=mitre mitre_limit=2.5'),invDist, 'join=mitre mitre_limit=2.5'))).geom;
     else
 --      RAISE NOTICE 'non Ortho';
-      return st_dump(st_buffer(st_buffer($1,theRec.dist),invDist)).geom;
+      return (st_dump(st_buffer(st_buffer($1,theRec.dist),invDist))).geom;
     END IF;
   END IF;  
 End;$BODY$
