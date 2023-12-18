@@ -22,6 +22,7 @@ Only in the second step the aggregation function aggregatepolygons() can be inst
  
 
 $ psql <dbname> -U <user> -h <server> -f cleanGeometry.sql
+
 $ psql <dbname> -U <user> -h <server> -f aggregatePolygons.sql
 
  
