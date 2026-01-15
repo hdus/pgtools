@@ -17,83 +17,108 @@
 -- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 
--- Function: _aggregatepolygonsfunction(geometry, geometry, double precision, boolean)
+-- 1. Composite-Type für den State
+DROP TYPE IF EXISTS aggregatepolygons_state CASCADE;
 
-CREATE OR REPLACE FUNCTION _aggregatepolygonsfunction(geometry, geometry, double precision, boolean)
-  RETURNS geometry AS
-$BODY$DECLARE
-  invDist double precision;
-  theUnionGeom geometry;
-  theTmpTab Text;
-  cmd Text;
-
-Begin
-  invDist := $3 * -1;
-
-  IF not st_isEmpty($1) THEN
-    theUnionGeom := st_union($1,$2);
-    IF NOT st_isEmpty(theUnionGeom) THEN
-      IF (GeometryType(theUnionGeom) = 'GEOMETRYCOLLECTION') THEN      
-        theUnionGeom := st_geometryextract(theUnionGeom,3);     
-      END IF;
-      return cleanGeometry(theUnionGeom);        
-    END IF;
-  ELSE
-    theTmpTab := 'tmp_'||round(extract(epoch from now()));
-    BEGIN
-      cmd := 'create temp table '||theTmpTab||' (dist double precision, ortho boolean);';
-      execute cmd;
-      cmd := 'insert into '||theTmpTab||' values ('||$3||','||$4||');'; 
-      execute cmd;
-      EXCEPTION
-        WHEN duplicate_table THEN
-      END;
-
-    return $2;
-  END IF;  
-End;$BODY$
-  LANGUAGE 'plpgsql' VOLATILE
-  COST 100;
-
-  
--- Function: _aggregatepolygonsfunction(geometry, geometry, double precision, boolean)
-
-
-CREATE OR REPLACE FUNCTION _aggregatepolygonsfunctionbuffer(geometry)
-  RETURNS geometry AS
-$BODY$DECLARE
-  invDist double precision;
-  dist double precision;
-  theRec record;
-  theTmpTab text;
-
-Begin
-  theTmpTab := 'tmp_'||round(extract(epoch from now()));
-  execute 'select * from '||theTmpTab into theRec;
-  invDist := theRec.dist * -1;
-
-  IF not st_isEmpty($1) THEN
-    IF theRec.ortho THEN
---      RAISE NOTICE 'Ortho';
-      return (st_dump(st_buffer(st_buffer($1,theRec.dist, 'join=mitre mitre_limit=2.5'),invDist, 'join=mitre mitre_limit=2.5'))).geom;
-    else
---      RAISE NOTICE 'non Ortho';
-      return (st_dump(st_buffer(st_buffer($1,theRec.dist),invDist))).geom;
-    END IF;
-  END IF;  
-End;$BODY$
-  LANGUAGE 'plpgsql' VOLATILE
-  COST 100;
-
-
-GRANT EXECUTE ON FUNCTION _aggregatepolygonsfunction(geometry, geometry, double precision, boolean) TO public;
-GRANT EXECUTE ON FUNCTION _aggregatepolygonsfunctionbuffer(geometry) TO public;
-
-DROP AGGREGATE IF EXISTS aggregatepolygons(geometry, double precision, boolean);
-CREATE AGGREGATE aggregatepolygons(geometry, double precision, boolean)
-
-(
-  SFUNC=_aggregatepolygonsfunction,
-  STYPE=geometry,
-  FINALFUNC=_aggregatepolygonsfunctionbuffer
+CREATE TYPE aggregatepolygons_state AS (
+    geom geometry,
+    dist double precision,
+    ortho boolean
 );
+
+-- 2. State-Funktion
+CREATE OR REPLACE FUNCTION _aggregatepolygons_state(
+    state aggregatepolygons_state,
+    new_geom geometry,
+    dist double precision,
+    ortho boolean
+)
+RETURNS aggregatepolygons_state AS
+$$
+DECLARE
+    theUnion geometry;
+BEGIN
+    IF state IS NULL OR state.geom IS NULL OR ST_IsEmpty(state.geom) THEN
+        RETURN (new_geom, dist, ortho);
+    END IF;
+
+    theUnion := ST_Union(state.geom, new_geom);
+
+    -- GeometryCollection → nur Polygone extrahieren
+    IF GeometryType(theUnion) = 'GEOMETRYCOLLECTION' THEN
+        theUnion := ST_CollectionExtract(theUnion, 3);
+    END IF;
+
+    RETURN (theUnion, state.dist, state.ortho);
+END;
+$$
+LANGUAGE plpgsql
+VOLATILE;
+
+-- 3. Final-Funktion mit optimiertem Splitting
+CREATE OR REPLACE FUNCTION _aggregatepolygons_final(
+    state aggregatepolygons_state
+)
+RETURNS geometry AS
+$$
+DECLARE
+    invDist double precision;
+    geom_to_buffer geometry := state.geom;
+    buffered geometry;
+    single_geom geometry;
+BEGIN
+    IF state IS NULL OR state.geom IS NULL OR ST_IsEmpty(state.geom) THEN
+        RETURN NULL;
+    END IF;
+
+    invDist := -state.dist;
+
+    -- Nur MultiPolygons splitten, die mehr als 1 Polygon enthalten
+    IF GeometryType(geom_to_buffer) = 'MULTIPOLYGON' THEN
+        IF ST_NumGeometries(geom_to_buffer) > 1 THEN
+            geom_to_buffer := (
+                SELECT ST_Union(d.geom)
+                FROM ST_Dump(geom_to_buffer) AS d
+            );
+        END IF;
+    END IF;
+
+    -- Puffer-Logik
+    IF state.ortho THEN
+        buffered := ST_Buffer(
+                        ST_Buffer(geom_to_buffer, state.dist, 'join=mitre mitre_limit=2.5'),
+                        invDist, 'join=mitre mitre_limit=2.5'
+                    );
+    ELSE
+        buffered := ST_Buffer(geom_to_buffer, state.dist);
+        buffered := ST_Buffer(buffered, invDist);
+    END IF;
+
+    -- Dump + Union → immer eine Geometry zurück
+    RETURN (
+        SELECT ST_Union(d.geom)
+        FROM ST_Dump(buffered) AS d
+    );
+END;
+$$
+LANGUAGE plpgsql
+VOLATILE;
+
+-- 4. Aggregate erstellen
+DROP AGGREGATE IF EXISTS aggregatepolygons(geometry, double precision, boolean);
+
+CREATE AGGREGATE aggregatepolygons(
+    geometry,
+    double precision,
+    boolean
+)
+(
+    SFUNC = _aggregatepolygons_state,
+    STYPE = aggregatepolygons_state,
+    FINALFUNC = _aggregatepolygons_final
+);
+
+-- 5. Rechte vergeben
+GRANT EXECUTE ON FUNCTION _aggregatepolygons_state(aggregatepolygons_state, geometry, double precision, boolean) TO public;
+GRANT EXECUTE ON FUNCTION _aggregatepolygons_final(aggregatepolygons_state) TO public;
+
