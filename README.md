@@ -5,7 +5,7 @@ Tools to extend PostGIS functionality
 
 For cartographic purposes, it is often necessary to combine unconnected polygons and generalize them in this way. For example, if groups of individual buildings are to be combined to form a settlement area. With the PostGIS aggregate function aggregatepolygons() developed by Kappasys this aggregation can be done easily.
 
-The aggregate function aggregatepolygons(geometry, double precision, boolean) expects 3 parameters
+The aggregate function `aggregatepolygons(geometry, double precision, boolean)` expects 3 parameters
 
     1. the geometry column
     2. Threshold value within which polygons are grouped into map units
